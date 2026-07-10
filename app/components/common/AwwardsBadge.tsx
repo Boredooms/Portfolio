@@ -3,61 +3,77 @@
 import { useScrollStore } from '@/app/stores/scrollStore';
 import { useProgress } from '@react-three/drei';
 import { usePortalStore } from '@stores';
-import gsap from 'gsap';
 import { useEffect, useRef, useState } from 'react';
 import { isMobile } from 'react-device-detect';
 
 const AwwardsBadge = () => {
-  const badgeRef = useRef<HTMLDivElement>(null);
   const isPortalActive = usePortalStore((state) => !!state.activePortalId);
   const scrollProgress = useScrollStore((state) => state.scrollProgress);
   const { progress } = useProgress();
 
-  const [startAnimation, setStartAnimation] = useState(false);
+  const [hasRevealed, setHasRevealed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [isScrollingDown, setIsScrollingDown] = useState(false);
+  const lastScrollProgress = useRef(0);
   const loaded = progress === 100;
 
+  // Reveal the badge 2 seconds after page is fully loaded
   useEffect(() => {
     if (loaded) {
-      gsap.to(badgeRef.current, {
-        duration: 2,
-        delay: 2,
-        right: 0,
-        onComplete: () => setStartAnimation(true),
-      });
+      const timer = setTimeout(() => {
+        setHasRevealed(true);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
   }, [loaded]);
 
+  // Track scroll direction
   useEffect(() => {
-    if (isPortalActive) return;
-    if (startAnimation && badgeRef.current) {
-      gsap.to(badgeRef.current, {
-        right: -scrollProgress * 1000,
-        duration: 0,
-        ease: 'power2.out',
-      });
+    if (scrollProgress > lastScrollProgress.current + 0.005) {
+      setIsScrollingDown(true);
+    } else if (scrollProgress < lastScrollProgress.current - 0.005) {
+      setIsScrollingDown(false);
     }
+    lastScrollProgress.current = scrollProgress;
+  }, [scrollProgress]);
 
-    return () => {
-      gsap.killTweensOf(badgeRef.current);
+  // Hide sidebar badge completely on mobile
+  if (isMobile) return null;
+
+  // Calculate the right position based on state:
+  // - If portal is active: hidden completely (-100px)
+  // - If not revealed yet: hidden completely (-100px)
+  // - If scrolling down: hidden completely (-60px) to not block screen
+  // - If stopped or scrolling up:
+  //   - If hovered: fully revealed (0px)
+  //   - If not hovered: tucked away (-45px) so only 8px blue strip is visible
+  let rightPos = '-100px';
+  if (loaded && !isPortalActive) {
+    if (!hasRevealed) {
+      rightPos = '-100px';
+    } else if (isScrollingDown) {
+      rightPos = '-60px';
+    } else if (hovered) {
+      rightPos = '0px';
+    } else {
+      rightPos = '-45px';
     }
-  }, [startAnimation, scrollProgress]);
-
-  useEffect(() => {
-    if (!badgeRef.current) return;
-    badgeRef.current.style.scale = isMobile ? '0.7' : '0.9';
-  }, [isMobile]);
+  }
 
   return (
     <div
       id="devfolio-badge"
-      ref={badgeRef}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         position: 'fixed',
         zIndex: 999,
-        transform: 'translateY(-50%)',
-        transformOrigin: 'right top',
         top: '50%',
-        right: -100,
+        transform: 'translateY(-50%)',
+        transformOrigin: 'right center',
+        right: rightPos,
+        transition: 'right 0.3s cubic-bezier(0.25, 1, 0.5, 1)',
+        cursor: 'pointer',
       }}
     >
       <a href="https://devfolio.co/@DevarghoC" target="_blank" rel="noopener noreferrer">

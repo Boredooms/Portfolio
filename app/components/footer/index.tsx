@@ -86,7 +86,18 @@ const FooterLinkItem = ({ link }: { link: FooterLink }) => {
   useCursor(hovered);
 
   if (isMobile) {
-    return <Svg onClick={onClick} scale={0.0015} position={[0.1, 0.25, 0]} src={link.icon} />;
+    const getIconScale = (name: string) => {
+      const baseScale = 0.0015;
+      switch (name.toLowerCase()) {
+        case 'devfolio':
+          return baseScale * (256 / 66.2);
+        case 'x':
+          return baseScale * (256 / 24);
+        default:
+          return baseScale;
+      }
+    };
+    return <Svg onClick={onClick} scale={getIconScale(link.name)} position={[0.1, 0.25, 0]} src={link.icon} />;
   }
 
   return (
